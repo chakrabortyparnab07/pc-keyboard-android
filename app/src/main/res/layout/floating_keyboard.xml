@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#101820"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"
+        android:text="PC Keyboard Overlay"
+        android:textColor="#FFFFFF"
+        android:textSize="28sp"
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/openKeyboardButton"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:backgroundTint="#3B82F6"
+        android:text="Open Keyboard"
+        android:textColor="#FFFFFF" />
+
+    <Button
+        android:id="@+id/closeKeyboardButton"
+        android:layout_width="220dp"
+        android:layout_height="wrap_content"
+        android:backgroundTint="#EF4444"
+        android:text="Close Keyboard"
+        android:textColor="#FFFFFF" />
+
+</LinearLayout>

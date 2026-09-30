@@ -1,0 +1,202 @@
+package com.example.pckeyboard
+
+import android.app.Service
+import android.content.Intent
+import android.graphics.PixelFormat
+import android.os.Build
+import android.os.IBinder
+import android.provider.Settings
+import android.view.Gravity
+import android.view.LayoutInflater
+import android.view.MotionEvent
+import android.view.View
+import android.view.WindowManager
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
+
+class FloatingKeyboardService : Service() {
+
+    private var windowManager: WindowManager? = null
+    private var overlayView: View? = null
+    private var outputText: TextView? = null
+    private var keyBuffer = StringBuilder()
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (!Settings.canDrawOverlays(this)) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        if (overlayView == null) {
+            createOverlay()
+        }
+        return START_STICKY
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        overlayView?.let {
+            windowManager?.removeView(it)
+        }
+        overlayView = null
+    }
+
+    private fun createOverlay() {
+        val inflater = getSystemService(LayoutInflater::class.java)
+        overlayView = inflater.inflate(R.layout.floating_keyboard, null)
+        outputText = overlayView?.findViewById(R.id.outputText)
+
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+            } else {
+                @Suppress("DEPRECATION")
+                WindowManager.LayoutParams.TYPE_PHONE
+            },
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        )
+
+        params.gravity = Gravity.TOP or Gravity.START
+        params.x = 60
+        params.y = 220
+
+        windowManager = getSystemService(WindowManager::class.java)
+        windowManager?.addView(overlayView, params)
+
+        setupKeyHandlers()
+        setupDragging()
+    }
+
+    private fun setupKeyHandlers() {
+        val keyButtons = listOf(
+            R.id.keyEsc to "Esc",
+            R.id.keyTab to "Tab",
+            R.id.keyCtrl to "Ctrl",
+            R.id.keyShift to "Shift",
+            R.id.keyAlt to "Alt",
+            R.id.keyDel to "Del",
+            R.id.key1 to "1",
+            R.id.key2 to "2",
+            R.id.key3 to "3",
+            R.id.key4 to "4",
+            R.id.key5 to "5",
+            R.id.key6 to "6",
+            R.id.key7 to "7",
+            R.id.key8 to "8",
+            R.id.key9 to "9",
+            R.id.key0 to "0",
+            R.id.keyQ to "Q",
+            R.id.keyW to "W",
+            R.id.keyE to "E",
+            R.id.keyR to "R",
+            R.id.keyT to "T",
+            R.id.keyY to "Y",
+            R.id.keyU to "U",
+            R.id.keyI to "I",
+            R.id.keyO to "O",
+            R.id.keyP to "P",
+            R.id.keyA to "A",
+            R.id.keyS to "S",
+            R.id.keyD to "D",
+            R.id.keyF to "F",
+            R.id.keyG to "G",
+            R.id.keyH to "H",
+            R.id.keyJ to "J",
+            R.id.keyK to "K",
+            R.id.keyL to "L",
+            R.id.keyZ to "Z",
+            R.id.keyX to "X",
+            R.id.keyC to "C",
+            R.id.keyV to "V",
+            R.id.keyB to "B",
+            R.id.keyN to "N",
+            R.id.keyM to "M",
+            R.id.keyBackspace to "Backspace",
+            R.id.keySpace to "Space",
+            R.id.keyLeft to "Left",
+            R.id.keyUp to "Up",
+            R.id.keyDown to "Down",
+            R.id.keyRight to "Right",
+            R.id.keyEnter to "Enter"
+        )
+
+        for ((id, label) in keyButtons) {
+            val button = overlayView?.findViewById<Button>(id) ?: continue
+            button.setOnClickListener {
+                handleKeyPress(label)
+            }
+        }
+    }
+
+    private fun handleKeyPress(label: String) {
+        when (label) {
+            "Backspace" -> {
+                if (keyBuffer.isNotEmpty()) {
+                    keyBuffer.deleteCharAt(keyBuffer.length - 1)
+                }
+            }
+            "Space" -> keyBuffer.append(' ')
+            "Tab" -> keyBuffer.append("\t")
+            "Enter" -> keyBuffer.append("\n")
+            "Esc" -> keyBuffer.append("[Esc]")
+            "Ctrl" -> keyBuffer.append("[Ctrl]")
+            "Shift" -> keyBuffer.append("[Shift]")
+            "Alt" -> keyBuffer.append("[Alt]")
+            "Del" -> keyBuffer.append("[Del]")
+            "Left" -> keyBuffer.append("[Left]")
+            "Up" -> keyBuffer.append("[Up]")
+            "Down" -> keyBuffer.append("[Down]")
+            "Right" -> keyBuffer.append("[Right]")
+            else -> keyBuffer.append(label)
+        }
+
+        outputText?.text = keyBuffer.toString()
+    }
+
+    private fun setupDragging() {
+        overlayView ?: return
+
+        var initialX = 0
+        var initialY = 0
+        var touchX = 0f
+        var touchY = 0f
+        var dragging = false
+        val root = overlayView as? LinearLayout ?: return
+
+        root.setOnTouchListener { _, event ->
+            val params = overlayView?.layoutParams as? WindowManager.LayoutParams ?: return@setOnTouchListener false
+
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    initialX = params.x
+                    initialY = params.y
+                    touchX = event.rawX
+                    touchY = event.rawY
+                    dragging = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = (event.rawX - touchX).toInt()
+                    val dy = (event.rawY - touchY).toInt()
+                    params.x = initialX + dx
+                    params.y = initialY + dy
+                    windowManager?.updateViewLayout(overlayView, params)
+                    dragging = true
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    dragging
+                }
+                else -> false
+            }
+        }
+    }
+}
